@@ -80,6 +80,7 @@ public sealed class MainLightController : MonoBehaviour
     }
 
     private bool colliderPathDirty;
+    private bool beamEnabled = true;
 
     private GameObject beamVisualObject;
     private Mesh beamMesh;
@@ -103,6 +104,16 @@ public sealed class MainLightController : MonoBehaviour
     public float BeamLength => beamLength;
     public float VerticalNormalized => Mathf.InverseLerp(minY, maxY, transform.localPosition.y);
     public bool IsNarrow { get; private set; }
+    public bool IsVerticallyFixed => Mathf.Approximately(minY, maxY);
+    public bool IsBeamEnabled => beamEnabled;
+
+    /// <summary>Returns true for the player layer, which is intentionally transparent to every light ray.</summary>
+    public static bool IsPlayerLightPassThrough(Collider2D collider)
+    {
+        int playerLayer = LayerMask.NameToLayer("PlayerNoBloom");
+        return collider != null && playerLayer >= 0 && collider.gameObject.layer == playerLayer;
+    }
+
     public Vector2 Origin => beamPivot != null ? beamPivot.position : transform.position;
     public Vector2 Direction => beamPivot != null ? beamPivot.up : Vector2.right;
 
@@ -157,6 +168,20 @@ public sealed class MainLightController : MonoBehaviour
             Destroy(colorProfileTexture);
     }
 
+    /// <summary>Enables or disables this light's visual and puzzle area without changing its configuration.</summary>
+    public void SetBeamEnabled(bool enabled)
+    {
+        if (beamEnabled == enabled)
+            return;
+
+        beamEnabled = enabled;
+        if (beamVisualObject != null)
+            beamVisualObject.SetActive(beamEnabled);
+        if (lightArea != null)
+            lightArea.enabled = beamEnabled;
+
+        StateChanged?.Invoke(this);
+    }
     public void SetVerticalNormalized(float normalized)
     {
         SetVerticalLocalY(Mathf.Lerp(minY, maxY, Mathf.Clamp01(normalized)));
@@ -215,7 +240,7 @@ public sealed class MainLightController : MonoBehaviour
     /// <summary>현재 충돌로 잘린 실제 빛 폴리곤 안에 지점이 있는지 검사한다.</summary>
     public bool IsPointLit(Vector2 worldPosition)
     {
-        if (beamPivot == null || currentColliderPath == null)
+        if (!beamEnabled || beamPivot == null || currentColliderPath == null)
             return false;
 
         Vector2 localPoint = beamPivot.InverseTransformPoint(worldPosition);
@@ -241,7 +266,7 @@ public sealed class MainLightController : MonoBehaviour
     /// </summary>
     public bool IsColliderReceivingBeam(Collider2D target)
     {
-        if (target == null || !target.enabled)
+        if (!beamEnabled || target == null || !target.enabled)
             return false;
 
         if (IsColliderLit(target))
@@ -369,7 +394,11 @@ private void UpdateWidthTransition()
         return beamLength * Mathf.Clamp01(outsideSource / expansion);
     }    private void ApplyLightAreaCollider()
     {
-        if (!colliderPathDirty || lightArea == null || !IsRenderablePolygon(currentColliderPath))
+        if (lightArea == null)
+            return;
+
+        lightArea.enabled = beamEnabled;
+        if (!beamEnabled || !colliderPathDirty || !IsRenderablePolygon(currentColliderPath))
             return;
 
         lightArea.pathCount = 1;
@@ -394,7 +423,7 @@ private void UpdateWidthTransition()
         for (int i = 0; i < hitCount; i++)
         {
             Collider2D hitCollider = raycastHits[i].collider;
-            if (hitCollider == null || hitCollider == lightArea)
+            if (hitCollider == null || hitCollider == lightArea || IsPlayerLightPassThrough(hitCollider))
                 continue;
 
             Transform hitTransform = hitCollider.transform;

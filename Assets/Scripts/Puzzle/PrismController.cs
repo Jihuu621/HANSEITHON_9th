@@ -191,7 +191,7 @@ public sealed class PrismController : MonoBehaviour
         for (int i = 0; i < hitCount; i++)
         {
             Collider2D hitCollider = raycastHits[i].collider;
-            if (hitCollider == null || hitCollider == prismCollider)
+            if (hitCollider == null || hitCollider == prismCollider || MainLightController.IsPlayerLightPassThrough(hitCollider))
                 continue;
             if (hitCollider.transform == transform || hitCollider.transform.IsChildOf(transform))
                 continue;

@@ -4,7 +4,7 @@ using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// 베젤에서 수평으로 발사되는 고정 방향 사다리꼴 메인 라이트.
-/// 시작 폭은 고정하고, 진행 방향 끝의 폭만 부드럽게 조절한다.
+/// 직접 입력을 받지 않으며 AI 오퍼레이터의 명령으로만 상태가 바뀐다.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Rigidbody2D))]
@@ -18,7 +18,6 @@ public sealed class MainLightController : MonoBehaviour
     [SerializeField] private PolygonCollider2D lightArea;
 
     [Header("Vertical Movement (local position)")]
-    [SerializeField, Min(0f)] private float verticalSpeed = 5f;
     [SerializeField] private float minY = -4.25f;
     [SerializeField] private float maxY = 4.25f;
 
@@ -28,7 +27,6 @@ public sealed class MainLightController : MonoBehaviour
     [SerializeField, Min(0.05f)] private float narrowEndWidth = 0.9f;
     [SerializeField, Min(0.05f)] private float wideEndWidth = 4f;
     [SerializeField, Min(0.01f)] private float widthTransitionTime = 0.25f;
-    [SerializeField, Min(0.01f)] private float widthAdjustSpeed = 2.5f;
     [SerializeField, Min(0f)] private float edgeSoftness = 0.2f;
     [SerializeField, Range(0f, 4f)] private float narrowBrightness = 1.2f;
     [SerializeField, Range(0f, 4f)] private float wideBrightness = 0.45f;
@@ -39,14 +37,6 @@ public sealed class MainLightController : MonoBehaviour
     [SerializeField] private Color primaryColor = new(1f, 0.88f, 0.55f, 1f);
     [SerializeField] private Color alternateColor = Color.cyan;
 
-    [Header("MVP Keyboard Controls")]
-    [SerializeField] private bool acceptKeyboardInput = true;
-    [SerializeField] private KeyCode moveUpKey = KeyCode.UpArrow;
-    [SerializeField] private KeyCode moveDownKey = KeyCode.DownArrow;
-    [SerializeField] private KeyCode narrowBeamKey = KeyCode.Q;
-    [SerializeField] private KeyCode widenBeamKey = KeyCode.E;
-    [SerializeField] private KeyCode toggleColorKey = KeyCode.C;
-
     private Color currentColor;
     private float currentEndWidth;
     private float targetEndWidth;
@@ -54,8 +44,10 @@ public sealed class MainLightController : MonoBehaviour
 
     public Color CurrentColor => currentColor;
     public float Spread => currentEndWidth;
+    public float SpreadNormalized => Mathf.InverseLerp(narrowEndWidth, wideEndWidth, currentEndWidth);
     public float Brightness { get; private set; }
     public float BeamLength => beamLength;
+    public float VerticalNormalized => Mathf.InverseLerp(minY, maxY, transform.localPosition.y);
     public bool IsNarrow { get; private set; }
     public Vector2 Origin => beamPivot != null ? beamPivot.position : transform.position;
     public Vector2 Direction => beamPivot != null ? beamPivot.up : Vector2.right;
@@ -84,41 +76,24 @@ public sealed class MainLightController : MonoBehaviour
 
     private void Update()
     {
-        if (acceptKeyboardInput)
-            HandleKeyboardInput();
-
         UpdateWidthTransition();
     }
 
-    private void HandleKeyboardInput()
+    public void SetVerticalNormalized(float normalized)
     {
-        float moveInput = 0f;
-        if (Input.GetKey(moveUpKey)) moveInput += 1f;
-        if (Input.GetKey(moveDownKey)) moveInput -= 1f;
-        if (!Mathf.Approximately(moveInput, 0f))
-            MoveVertically(moveInput);
-
-        float widthInput = 0f;
-        if (Input.GetKey(narrowBeamKey)) widthInput -= 1f;
-        if (Input.GetKey(widenBeamKey)) widthInput += 1f;
-        if (!Mathf.Approximately(widthInput, 0f))
-            AdjustEndWidth(widthInput);
-
-        if (Input.GetKeyDown(toggleColorKey))
-            ToggleColor();
+        SetVerticalLocalY(Mathf.Lerp(minY, maxY, Mathf.Clamp01(normalized)));
     }
 
-    public void MoveVertically(float direction)
+    public void SetVerticalLocalY(float localY)
     {
         Vector3 position = transform.localPosition;
-        position.y = Mathf.Clamp(position.y + direction * verticalSpeed * Time.deltaTime, minY, maxY);
-        transform.localPosition = position;
-    }
+        float clampedY = Mathf.Clamp(localY, minY, maxY);
+        if (Mathf.Approximately(position.y, clampedY))
+            return;
 
-    /// <summary>Q/E 등 연속 입력으로 빔 끝 폭을 조절한다.</summary>
-    public void AdjustEndWidth(float direction)
-    {
-        SetEndWidth(targetEndWidth + direction * widthAdjustSpeed * Time.deltaTime);
+        position.y = clampedY;
+        transform.localPosition = position;
+        StateChanged?.Invoke(this);
     }
 
     public void SetNarrow(bool narrow)
@@ -132,10 +107,17 @@ public sealed class MainLightController : MonoBehaviour
         IsNarrow = Mathf.Approximately(targetEndWidth, narrowEndWidth);
     }
 
-    /// <summary>0은 최소 끝 폭, 1은 최대 끝 폭이다.</summary>
     public void SetSpreadNormalized(float normalized)
     {
         SetEndWidth(Mathf.Lerp(narrowEndWidth, wideEndWidth, Mathf.Clamp01(normalized)));
+    }
+
+    /// <summary>AI의 자동 폭 조절을 현재 보이는 폭에서 즉시 멈춘다.</summary>
+    public void FreezeEndWidth()
+    {
+        targetEndWidth = currentEndWidth;
+        widthVelocity = 0f;
+        IsNarrow = Mathf.Approximately(targetEndWidth, narrowEndWidth);
     }
 
     public void ToggleColor()
@@ -279,7 +261,6 @@ public sealed class MainLightController : MonoBehaviour
         if (maxY < minY) maxY = minY;
         wideEndWidth = Mathf.Max(wideEndWidth, narrowEndWidth);
         widthTransitionTime = Mathf.Max(0.01f, widthTransitionTime);
-        widthAdjustSpeed = Mathf.Max(0.01f, widthAdjustSpeed);
 
         CacheReferences();
         ApplyFixedDirection();

@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!1 &100000
 GameObject:
@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 100001}
   - component: {fileID: 100002}
+  - component: {fileID: 100004}
   - component: {fileID: 100003}
   m_Layer: 0
   m_Name: MainLight
@@ -49,7 +50,6 @@ MonoBehaviour:
   beamPivot: {fileID: 100011}
   visualLight: {fileID: 100012}
   lightArea: {fileID: 100022}
-  verticalSpeed: 5
   minY: -4.25
   maxY: 4.25
   sourceWidth: 0.45
@@ -57,7 +57,6 @@ MonoBehaviour:
   narrowEndWidth: 0.9
   wideEndWidth: 4
   widthTransitionTime: 0.25
-  widthAdjustSpeed: 2.5
   edgeSoftness: 0.2
   narrowBrightness: 1.2
   wideBrightness: 0.45
@@ -67,12 +66,27 @@ MonoBehaviour:
     m_Bits: 0
   primaryColor: {r: 1, g: 0.88, b: 0.55, a: 1}
   alternateColor: {r: 0, g: 1, b: 1, a: 1}
-  acceptKeyboardInput: 1
-  moveUpKey: 273
-  moveDownKey: 274
-  narrowBeamKey: 113
-  widenBeamKey: 101
-  toggleColorKey: 99
+--- !u!114 &100004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d59d9ddae3045a2aef94cb741d3e813, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mainLight: {fileID: 100002}
+  widthCommandKey: 49
+  widthCommandKeypad: 257
+  verticalCommandKey: 50
+  verticalCommandKeypad: 258
+  colorCommandKey: 51
+  colorCommandKeypad: 259
+  widthLoopSpeed: 0.55
+  verticalLoopSpeed: 0.4
 --- !u!50 &100003
 Rigidbody2D:
   serializedVersion: 5
@@ -268,6 +282,3 @@ PolygonCollider2D:
       - {x: 0.45, y: 14}
       - {x: -0.45, y: 14}
   m_UseDelaunayMesh: 0
-
-
-

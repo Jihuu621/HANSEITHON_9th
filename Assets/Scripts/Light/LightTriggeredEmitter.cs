@@ -39,6 +39,7 @@ public sealed class LightTriggeredEmitter : MonoBehaviour
 
     public bool IsEmitting { get; private set; }
     public Color CurrentColor => currentEmissionColor;
+    public MainLightController InputLight => inputLight;
     public Vector2 Origin => emissionOrigin != null ? emissionOrigin.position : transform.position;
     public Vector2 End => beamEnd;
 

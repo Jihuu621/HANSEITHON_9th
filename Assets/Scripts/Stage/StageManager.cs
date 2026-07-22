@@ -44,6 +44,8 @@ public sealed class StageManager : MonoBehaviour
     public event Action<int> StageFailed;
 
     private Coroutine transitionRoutine;
+    // The first cleared-stage floor becomes the one persistent elevator for the whole run.
+    private Transform persistentElevatorFloor;
     private bool HasStageSequence => stages != null && stages.Count > 0;
     private StageDefinition CurrentStage => HasStageSequence ? stages[CurrentStageIndex] : null;
 
@@ -169,11 +171,17 @@ public sealed class StageManager : MonoBehaviour
         IsTransitioning = true;
         StageTransitionStarted?.Invoke(completedStageIndex, elevatorDuration);
 
-        Transform floor = FindLowestSolidFloor(clearedStageRoot);
+        // Do not replace the elevator on later transitions. The stage-1 floor carries the player through every stage.
+        if (persistentElevatorFloor == null)
+        {
+            persistentElevatorFloor = FindLowestSolidFloor(clearedStageRoot);
+            if (persistentElevatorFloor != null)
+                persistentElevatorFloor.SetParent(transform, true);
+        }
+
+        Transform floor = persistentElevatorFloor;
         if (floor != null)
         {
-            // Detach the floor before disabling the cleared stage: it becomes the next stage's elevator floor.
-            floor.SetParent(transform, true);
             StageElevator elevator = floor.GetComponent<StageElevator>();
             if (elevator == null)
                 elevator = floor.gameObject.AddComponent<StageElevator>();
@@ -187,10 +195,13 @@ public sealed class StageManager : MonoBehaviour
         {
             yield return new WaitForSeconds(elevatorDuration);
         }
-        // The player has reached the next floor. Only now stop the cleared stage's main-light control.
-        SetMainLightInteractionEnabled(clearedStageRoot, false);
-        SetMainLightVisualEnabled(clearedStageRoot, false);
-        SetSubLightVisualEnabled(clearedStageRoot, false);
+        // The player has reached the next floor. Remove the cleared stage completely.
+        // The persistent stage-1 elevator was detached before this, so it is preserved.
+        if (clearedStageRoot != null)
+        {
+            clearedStageRoot.SetActive(false);
+            Destroy(clearedStageRoot);
+        }
         transitionRoutine = null;
         BeginStage(nextStageIndex);
     }
@@ -211,6 +222,21 @@ public sealed class StageManager : MonoBehaviour
             StageDefinition stage = CurrentStage;
             mainGoal = stage != null ? stage.mainLightButton : null;
             subGoal = stage != null ? stage.subLightButton : null;
+
+            // Guard against stale inspector references: the secondary goal must belong to this stage.
+            if (mainGoal != null && (subGoal == null || subGoal.transform.root != mainGoal.transform.root))
+            {
+                LightGoalButton[] localGoals = mainGoal.transform.root.GetComponentsInChildren<LightGoalButton>(true);
+                for (int i = 0; i < localGoals.Length; i++)
+                {
+                    if (localGoals[i] != null && localGoals[i] != mainGoal)
+                    {
+                        subGoal = localGoals[i];
+                        break;
+                    }
+                }
+            }
+
             return;
         }
 
@@ -229,7 +255,7 @@ public sealed class StageManager : MonoBehaviour
         for (int i = 0; i < stages.Count; i++)
         {
             GameObject stageRoot = GetStageRoot(i);
-            if (stageRoot != null && i > activeStageIndex)
+            if (stageRoot != null && i != activeStageIndex)
                 stageRoot.SetActive(false);
             else if (stageRoot != null)
                 stageRoot.SetActive(true);

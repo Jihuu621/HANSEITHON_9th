@@ -13,8 +13,13 @@ GameObject:
   - component: {fileID: 5493463270735679141}
   - component: {fileID: 5054414323736480909}
   - component: {fileID: 6988882200045153225}
+<<<<<<< HEAD
   - component: {fileID: 5814843505279649459}
   m_Layer: 0
+=======
+  - component: {fileID: 6192173749815372460}
+  m_Layer: 7
+>>>>>>> 094c68837fdde8a2ec72f8fad8076435bbab15cf
   m_Name: Plsyer
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -176,15 +181,21 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
+<<<<<<< HEAD
 --- !u!95 &5814843505279649459
 Animator:
   serializedVersion: 7
+=======
+--- !u!114 &6192173749815372460
+MonoBehaviour:
+>>>>>>> 094c68837fdde8a2ec72f8fad8076435bbab15cf
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7179412594380081430}
   m_Enabled: 1
+<<<<<<< HEAD
   m_Avatar: {fileID: 0}
   m_Controller: {fileID: 9100000, guid: d33f97e5e75acf849b33a5268c508357, type: 2}
   m_CullingMode: 0
@@ -198,3 +209,10 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+=======
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8192a3b4c5d6e7f8091a2b3c4d5e6f70, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerBloomExclusion
+  baseCamera: {fileID: 0}
+>>>>>>> 094c68837fdde8a2ec72f8fad8076435bbab15cf

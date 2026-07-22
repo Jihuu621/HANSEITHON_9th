@@ -255,7 +255,7 @@ public sealed class ColorChangeLaser : MonoBehaviour
         for (int i = 0; i < hitCount; i++)
         {
             Collider2D hit = raycastHits[i].collider;
-            if (hit == null || hit.transform == transform || hit.transform.IsChildOf(transform))
+            if (hit == null || MainLightController.IsPlayerLightPassThrough(hit) || hit.transform == transform || hit.transform.IsChildOf(transform))
                 continue;
 
             nearestDistance = Mathf.Min(nearestDistance, raycastHits[i].distance);

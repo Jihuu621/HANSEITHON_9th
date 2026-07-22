@@ -13,6 +13,7 @@ public sealed class PlayerProximityLightActivator : MonoBehaviour
 
     private Transform player;
     private bool activated;
+    private bool stageSuppressed;
 
     private void Awake()
     {
@@ -26,7 +27,7 @@ public sealed class PlayerProximityLightActivator : MonoBehaviour
 
     private void Update()
     {
-        if (activated || lightSource == null)
+        if (stageSuppressed || activated || lightSource == null)
             return;
 
         ResolvePlayer();
@@ -38,6 +39,17 @@ public sealed class PlayerProximityLightActivator : MonoBehaviour
 
         activated = true;
         lightSource.SetBeamEnabled(true);
+    }
+
+    public void SetStageSuppressed(bool suppressed)
+    {
+        stageSuppressed = suppressed;
+        if (stageSuppressed)
+        {
+            activated = false;
+            if (lightSource != null)
+                lightSource.SetBeamEnabled(false);
+        }
     }
 
     private void ResolvePlayer()

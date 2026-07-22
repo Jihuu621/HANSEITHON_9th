@@ -95,6 +95,9 @@ public sealed class StageManager : MonoBehaviour
 
         UnsubscribeAllTimers();
         SetOnlyStageActive(stageIndex);
+        SetMainLightInteractionEnabled(GetStageRoot(stageIndex), true);
+        SetMainLightVisualEnabled(GetStageRoot(stageIndex), true);
+        SetSubLightVisualEnabled(GetStageRoot(stageIndex), true);
         CurrentStageIndex = stageIndex;
         IsClear = false;
         IsTransitioning = false;
@@ -144,10 +147,7 @@ public sealed class StageManager : MonoBehaviour
         }
         else if (HasStageSequence)
         {
-            GameObject clearedStageRoot = GetStageRoot(CurrentStageIndex);
-            SetStageLightInteractionEnabled(clearedStageRoot, false);
-            if (clearedStageRoot != null)
-                clearedStageRoot.SetActive(false);
+            SetMainLightInteractionEnabled(GetStageRoot(CurrentStageIndex), false);
         }
     }
 
@@ -156,8 +156,16 @@ public sealed class StageManager : MonoBehaviour
         int nextStageIndex = completedStageIndex + 1;
         GameObject clearedStageRoot = GetStageRoot(completedStageIndex);
         GameObject nextStageRoot = GetStageRoot(nextStageIndex);
+        // Block manipulation immediately when the elevator starts, but keep the beam visible during travel.
+        SetMainLightInteractionEnabled(clearedStageRoot, false);
+        // The previous stage remains fully active while the elevator is moving.
+        // The next room becomes active immediately, but its AI input stays locked until the elevator arrives.
+        if (nextStageRoot != null)
+        {
+            nextStageRoot.SetActive(true);
+            SetMainLightInteractionEnabled(nextStageRoot, false);
+        }
 
-        SetStageLightInteractionEnabled(clearedStageRoot, false);
         IsTransitioning = true;
         StageTransitionStarted?.Invoke(completedStageIndex, elevatorDuration);
 
@@ -179,10 +187,10 @@ public sealed class StageManager : MonoBehaviour
         {
             yield return new WaitForSeconds(elevatorDuration);
         }
-
-        if (clearedStageRoot != null)
-            clearedStageRoot.SetActive(false);
-
+        // The player has reached the next floor. Only now stop the cleared stage's main-light control.
+        SetMainLightInteractionEnabled(clearedStageRoot, false);
+        SetMainLightVisualEnabled(clearedStageRoot, false);
+        SetSubLightVisualEnabled(clearedStageRoot, false);
         transitionRoutine = null;
         BeginStage(nextStageIndex);
     }
@@ -221,8 +229,10 @@ public sealed class StageManager : MonoBehaviour
         for (int i = 0; i < stages.Count; i++)
         {
             GameObject stageRoot = GetStageRoot(i);
-            if (stageRoot != null)
-                stageRoot.SetActive(i == activeStageIndex);
+            if (stageRoot != null && i > activeStageIndex)
+                stageRoot.SetActive(false);
+            else if (stageRoot != null)
+                stageRoot.SetActive(true);
         }
     }
 
@@ -255,21 +265,59 @@ public sealed class StageManager : MonoBehaviour
         return lowest != null ? lowest.transform : null;
     }
 
-    private static void SetStageLightInteractionEnabled(GameObject stageRoot, bool enabled)
+    private static void SetSubLightVisualEnabled(GameObject stageRoot, bool enabled)
+    {
+        if (stageRoot == null)
+            return;
+
+        // Handle direct descendants and prefab instances in the stage hierarchy.
+        PlayerProximityLightActivator[] activators = stageRoot.GetComponentsInChildren<PlayerProximityLightActivator>(true);
+        for (int i = 0; i < activators.Length; i++)
+        {
+            if (activators[i] != null)
+                activators[i].SetStageSuppressed(!enabled);
+        }
+
+        StaticSubLight[] subLights = stageRoot.GetComponentsInChildren<StaticSubLight>(true);
+        for (int i = 0; i < subLights.Length; i++)
+        {
+            if (subLights[i] != null)
+                subLights[i].SetEmitting(enabled);
+        }
+
+        // Fallback: catch any runtime prefab light that is rooted in this stage.
+        StaticSubLight[] sceneLights = FindObjectsByType<StaticSubLight>(FindObjectsInactive.Include);
+        for (int i = 0; i < sceneLights.Length; i++)
+        {
+            StaticSubLight light = sceneLights[i];
+            if (light != null && light.transform.root.gameObject == stageRoot)
+                light.SetEmitting(enabled);
+        }
+    }
+
+    private static void SetMainLightVisualEnabled(GameObject stageRoot, bool enabled)
     {
         if (stageRoot == null)
             return;
 
         AICompanionLightOperator[] operators = stageRoot.GetComponentsInChildren<AICompanionLightOperator>(true);
         for (int i = 0; i < operators.Length; i++)
-            operators[i].enabled = enabled;
+        {
+            MainLightController light = operators[i].GetComponent<MainLightController>();
+            if (light != null)
+                light.SetBeamEnabled(enabled);
+        }
+    }
 
-        if (enabled)
+    private static void SetMainLightInteractionEnabled(GameObject stageRoot, bool enabled)
+    {
+        if (stageRoot == null)
             return;
 
-        MainLightController[] lights = stageRoot.GetComponentsInChildren<MainLightController>(true);
-        for (int i = 0; i < lights.Length; i++)
-            lights[i].SetBeamEnabled(false);
+        // Keep cleared stages visible and preserve their light state; only stop key-driven main-light control.
+        AICompanionLightOperator[] operators = stageRoot.GetComponentsInChildren<AICompanionLightOperator>(true);
+        for (int i = 0; i < operators.Length; i++)
+            operators[i].enabled = enabled;
     }
 
     private void UnsubscribeAllTimers()

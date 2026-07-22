@@ -26,6 +26,7 @@ public sealed class MainLightController : MonoBehaviour
 
     [Header("Tapered Beam")]
     [SerializeField, Min(0.05f)] private float sourceWidth = 0.45f;
+    [SerializeField, Min(0f)] private float proceduralVisualOffset;
     [SerializeField, Min(0.1f)] private float beamLength = 14f;
     [SerializeField, Min(0.05f)] private float narrowEndWidth = 0.9f;
     [SerializeField, Min(0.05f)] private float wideEndWidth = 4f;
@@ -475,7 +476,7 @@ private void UpdateWidthTransition()
 
         beamVisualObject = new GameObject("Procedural Beam Visual");
         beamVisualObject.transform.SetParent(beamPivot, false);
-        beamVisualObject.transform.localPosition = Vector3.zero;
+        beamVisualObject.transform.localPosition = Vector3.up * proceduralVisualOffset;
         beamVisualObject.transform.localRotation = Quaternion.identity;
         beamVisualObject.transform.localScale = Vector3.one;
 
@@ -537,6 +538,9 @@ private void UpdateWidthTransition()
 
     private void UpdateBeamMesh(float sourceHalfWidth, float endHalfWidth)
     {
+        if (beamVisualObject != null)
+            beamVisualObject.transform.localPosition = Vector3.up * proceduralVisualOffset;
+
         if (beamMesh == null)
             return;
 
@@ -746,6 +750,7 @@ private static bool TryGetLaserIntersectionY(
         widthTransitionTime = Mathf.Max(0.01f, widthTransitionTime);
         occlusionRayCount = Mathf.Clamp(occlusionRayCount, 32, 256);
         hitPadding = Mathf.Max(0f, hitPadding);
+        proceduralVisualOffset = Mathf.Max(0f, proceduralVisualOffset);
         colorTransitionSoftness = Mathf.Clamp(colorTransitionSoftness, 0.0001f, 0.03f);
 
         CacheReferences();

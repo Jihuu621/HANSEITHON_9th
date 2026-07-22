@@ -7,6 +7,9 @@ using UnityEngine;
 public sealed class StageElevator : MonoBehaviour
 {
     private Rigidbody2D body;
+    private Rigidbody2D playerBody;
+    private RigidbodyInterpolation2D playerInterpolationBeforeRide;
+    private bool playerInterpolationOverridden;
 
     private void Awake()
     {
@@ -16,6 +19,7 @@ public sealed class StageElevator : MonoBehaviour
     public IEnumerator MoveTo(Vector3 destination, float duration)
     {
         CacheAndConfigureBody();
+        EnablePassengerInterpolation();
 
         Vector3 start = transform.position;
         float elapsed = 0f;
@@ -29,6 +33,38 @@ public sealed class StageElevator : MonoBehaviour
         }
 
         body.position = destination;
+        RestorePassengerInterpolation();
+    }
+
+    private void OnDisable()
+    {
+        RestorePassengerInterpolation();
+    }
+
+    // The floor moves on fixed physics ticks, while the camera moves every rendered frame.
+    // Interpolating only the riding player prevents visible fixed-tick jitter.
+    private void EnablePassengerInterpolation()
+    {
+        PlayerController player = FindAnyObjectByType<PlayerController>();
+        playerBody = player != null ? player.GetComponent<Rigidbody2D>() : null;
+        if (playerBody == null || playerInterpolationOverridden)
+            return;
+
+        playerInterpolationBeforeRide = playerBody.interpolation;
+        playerBody.interpolation = RigidbodyInterpolation2D.Interpolate;
+        playerInterpolationOverridden = true;
+    }
+
+    private void RestorePassengerInterpolation()
+    {
+        if (!playerInterpolationOverridden)
+            return;
+
+        if (playerBody != null)
+            playerBody.interpolation = playerInterpolationBeforeRide;
+
+        playerBody = null;
+        playerInterpolationOverridden = false;
     }
 
     private void CacheAndConfigureBody()

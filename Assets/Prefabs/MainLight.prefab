@@ -54,6 +54,7 @@ MonoBehaviour:
   minY: -4.25
   maxY: 4.25
   sourceWidth: 0.45
+  proceduralVisualOffset: 0
   beamLength: 14
   narrowEndWidth: 0.9
   wideEndWidth: 4
@@ -91,14 +92,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mainLight: {fileID: 100002}
-  widthCommandKey: 49
-  widthCommandKeypad: 257
-  verticalCommandKey: 50
-  verticalCommandKeypad: 258
-  colorCommandKey: 51
-  colorCommandKeypad: 259
-  widthLoopSpeed: 0.55
-  verticalLoopSpeed: 0.4
+  moveUpKey: 273
+  moveDownKey: 274
+  stopKey: 32
+  verticalSpeedNormalized: 0.22
 --- !u!50 &100003
 Rigidbody2D:
   serializedVersion: 5

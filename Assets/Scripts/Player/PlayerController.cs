@@ -84,14 +84,13 @@ public class PlayerController : MonoBehaviour
 
     void UpdateAnimations()
     {
-        float speed = Mathf.Abs(rb.linearVelocity.x);
-        float verticalVelocity = rb.linearVelocity.y;
         bool grounded = IsGrounded();
 
-        //animator.SetFloat("Speed", speed);
-        //animator.SetBool("IsGrounded", grounded);
-        //animator.SetBool("IsJumping", isJumping && verticalVelocity > 0f);
-        //.SetFloat("VerticalVelocity", verticalVelocity);
+        animator.SetFloat("Speed", Mathf.Abs(rb.linearVelocity.x));
+        animator.SetBool("Grounded", grounded);
+        animator.SetFloat("YVelocity", rb.linearVelocity.y);
+
+        Debug.Log($"Grounded : {grounded}, Y : {rb.linearVelocity.y}");
     }
 
     void CheckLanding()
@@ -99,26 +98,7 @@ public class PlayerController : MonoBehaviour
         if (isJumping && IsGrounded() && rb.linearVelocity.y <= 0f)
         {
             isJumping = false;
-            //animator.SetBool("IsJumping", false);
         }
-    }
-
-    void OnCollisionEnter2D(Collision2D collision)
-    {
-        /*if (collision.gameObject.CompareTag("MovingPlatform"))
-        {
-            transform.parent = collision.transform;
-        }
-        */
-    }
-
-    void OnCollisionExit2D(Collision2D collision)
-    {
-        /*if (collision.gameObject.CompareTag("MovingPlatform"))
-        {
-            transform.parent = null;
-        }
-        */
     }
 
 }

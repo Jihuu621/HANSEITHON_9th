@@ -1,11 +1,9 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Controls vertical stage progression inside one scene. Each entry opens its own exit,
-/// then arms the timer for the next stage; camera movement remains the responsibility of RoomTrigger/Cinemachine.
-/// </summary>
+/// <summary>Controls vertical stage progression inside one scene.</summary>
 [DisallowMultipleComponent]
 public sealed class StageManager : MonoBehaviour
 {
@@ -25,6 +23,8 @@ public sealed class StageManager : MonoBehaviour
     [Header("Vertical Stage Sequence")]
     [SerializeField] private List<StageDefinition> stages = new();
     [SerializeField] private bool startFirstStageOnStart = true;
+    [SerializeField, Min(0.1f)] private float elevatorDuration = 2.4f;
+    [SerializeField] private float nextStageFloorOffsetY = -4.35f;
 
     [Header("Legacy Single-Stage References")]
     [Tooltip("Used only when the Stages list is empty.")]
@@ -37,20 +37,20 @@ public sealed class StageManager : MonoBehaviour
     public int CurrentStageIndex { get; private set; }
     public bool IsClear { get; private set; }
     public bool HasNextStage => HasStageSequence && CurrentStageIndex + 1 < stages.Count;
+    public bool IsTransitioning { get; private set; }
 
     public event Action<int> StageCompleted;
+    public event Action<int, float> StageTransitionStarted;
     public event Action<int> StageFailed;
 
+    private Coroutine transitionRoutine;
     private bool HasStageSequence => stages != null && stages.Count > 0;
     private StageDefinition CurrentStage => HasStageSequence ? stages[CurrentStageIndex] : null;
 
     private void Awake()
     {
         if (Instance != null && Instance != this)
-        {
             Debug.LogWarning("Multiple StageManagers were found. The newest instance will be used.", this);
-        }
-
         Instance = this;
     }
 
@@ -67,10 +67,9 @@ public sealed class StageManager : MonoBehaviour
             Instance = null;
     }
 
-    /// <summary>Called by either goal button when its light-contact state changes.</summary>
     public void NotifyGoalButtonChanged(LightGoalButton changedButton)
     {
-        if (changedButton == null || IsClear)
+        if (changedButton == null || IsClear || IsTransitioning)
             return;
 
         GetCurrentGoals(out LightGoalButton mainGoal, out LightGoalButton subGoal);
@@ -80,7 +79,6 @@ public sealed class StageManager : MonoBehaviour
         TryCompleteCurrentStage();
     }
 
-    /// <summary>Public manual hook for cutscenes or non-button objectives.</summary>
     public void PuzzleComplete()
     {
         TryCompleteCurrentStage(force: true);
@@ -96,8 +94,10 @@ public sealed class StageManager : MonoBehaviour
         }
 
         UnsubscribeAllTimers();
+        SetOnlyStageActive(stageIndex);
         CurrentStageIndex = stageIndex;
         IsClear = false;
+        IsTransitioning = false;
 
         StageTimer activeTimer = GetCurrentTimer();
         if (activeTimer != null)
@@ -116,15 +116,11 @@ public sealed class StageManager : MonoBehaviour
 
     private void TryCompleteCurrentStage(bool force = false)
     {
-        if (IsClear)
+        if (IsClear || IsTransitioning)
             return;
 
         GetCurrentGoals(out LightGoalButton mainGoal, out LightGoalButton subGoal);
-        bool bothGoalsPressed = mainGoal != null
-            && subGoal != null
-            && mainGoal.IsPressed
-            && subGoal.IsPressed;
-
+        bool bothGoalsPressed = mainGoal != null && subGoal != null && mainGoal.IsPressed && subGoal.IsPressed;
         if (!force && !bothGoalsPressed)
             return;
 
@@ -141,12 +137,59 @@ public sealed class StageManager : MonoBehaviour
         Debug.Log($"Stage {CurrentStageIndex + 1} cleared.", this);
 
         if (HasNextStage)
-            BeginStage(CurrentStageIndex + 1);
+        {
+            if (transitionRoutine != null)
+                StopCoroutine(transitionRoutine);
+            transitionRoutine = StartCoroutine(TransitionToNextStage(CurrentStageIndex));
+        }
+        else if (HasStageSequence)
+        {
+            GameObject clearedStageRoot = GetStageRoot(CurrentStageIndex);
+            SetStageLightInteractionEnabled(clearedStageRoot, false);
+            if (clearedStageRoot != null)
+                clearedStageRoot.SetActive(false);
+        }
+    }
+
+    private IEnumerator TransitionToNextStage(int completedStageIndex)
+    {
+        int nextStageIndex = completedStageIndex + 1;
+        GameObject clearedStageRoot = GetStageRoot(completedStageIndex);
+        GameObject nextStageRoot = GetStageRoot(nextStageIndex);
+
+        SetStageLightInteractionEnabled(clearedStageRoot, false);
+        IsTransitioning = true;
+        StageTransitionStarted?.Invoke(completedStageIndex, elevatorDuration);
+
+        Transform floor = FindLowestSolidFloor(clearedStageRoot);
+        if (floor != null)
+        {
+            // Detach the floor before disabling the cleared stage: it becomes the next stage's elevator floor.
+            floor.SetParent(transform, true);
+            StageElevator elevator = floor.GetComponent<StageElevator>();
+            if (elevator == null)
+                elevator = floor.gameObject.AddComponent<StageElevator>();
+
+            Vector3 destination = floor.position;
+            if (nextStageRoot != null)
+                destination.y = nextStageRoot.transform.position.y + nextStageFloorOffsetY;
+            yield return elevator.MoveTo(destination, elevatorDuration);
+        }
+        else
+        {
+            yield return new WaitForSeconds(elevatorDuration);
+        }
+
+        if (clearedStageRoot != null)
+            clearedStageRoot.SetActive(false);
+
+        transitionRoutine = null;
+        BeginStage(nextStageIndex);
     }
 
     private void HandleCurrentStageTimeOver()
     {
-        if (IsClear)
+        if (IsClear || IsTransitioning)
             return;
 
         StageFailed?.Invoke(CurrentStageIndex);
@@ -167,14 +210,66 @@ public sealed class StageManager : MonoBehaviour
         subGoal = subLightButton;
     }
 
-    private StageTimer GetCurrentTimer()
+    private StageTimer GetCurrentTimer() => HasStageSequence ? CurrentStage?.timer : timer;
+    private StageCeiling GetCurrentExitGate() => HasStageSequence ? CurrentStage?.exitGate : ceiling;
+
+    private void SetOnlyStageActive(int activeStageIndex)
     {
-        return HasStageSequence ? CurrentStage?.timer : timer;
+        if (!HasStageSequence)
+            return;
+
+        for (int i = 0; i < stages.Count; i++)
+        {
+            GameObject stageRoot = GetStageRoot(i);
+            if (stageRoot != null)
+                stageRoot.SetActive(i == activeStageIndex);
+        }
     }
 
-    private StageCeiling GetCurrentExitGate()
+    private GameObject GetStageRoot(int stageIndex)
     {
-        return HasStageSequence ? CurrentStage?.exitGate : ceiling;
+        if (!HasStageSequence || stageIndex < 0 || stageIndex >= stages.Count)
+            return null;
+
+        LightGoalButton goal = stages[stageIndex]?.mainLightButton;
+        return goal != null ? goal.transform.root.gameObject : null;
+    }
+
+    private static Transform FindLowestSolidFloor(GameObject stageRoot)
+    {
+        if (stageRoot == null)
+            return null;
+
+        Collider2D[] colliders = stageRoot.GetComponentsInChildren<Collider2D>(true);
+        Collider2D lowest = null;
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider2D candidate = colliders[i];
+            if (candidate == null || candidate.isTrigger)
+                continue;
+
+            if (lowest == null || candidate.bounds.center.y < lowest.bounds.center.y)
+                lowest = candidate;
+        }
+
+        return lowest != null ? lowest.transform : null;
+    }
+
+    private static void SetStageLightInteractionEnabled(GameObject stageRoot, bool enabled)
+    {
+        if (stageRoot == null)
+            return;
+
+        AICompanionLightOperator[] operators = stageRoot.GetComponentsInChildren<AICompanionLightOperator>(true);
+        for (int i = 0; i < operators.Length; i++)
+            operators[i].enabled = enabled;
+
+        if (enabled)
+            return;
+
+        MainLightController[] lights = stageRoot.GetComponentsInChildren<MainLightController>(true);
+        for (int i = 0; i < lights.Length; i++)
+            lights[i].SetBeamEnabled(false);
     }
 
     private void UnsubscribeAllTimers()

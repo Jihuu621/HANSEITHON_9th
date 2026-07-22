@@ -16,12 +16,10 @@ public class StageManager : MonoBehaviour
         Instance = this;
     }
 
-
     public void PuzzleComplete()
     {
         if (clear)
             return;
-
 
         clear = true;
 

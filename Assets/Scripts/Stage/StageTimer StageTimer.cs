@@ -27,7 +27,7 @@ public class StageTimer : MonoBehaviour
         if (!isRunning)
             return;
 
-
+       
         currentTime -= Time.deltaTime;
 
 
@@ -47,6 +47,7 @@ public class StageTimer : MonoBehaviour
         }
     }
 
+   
 
 
     public void StartTimer()

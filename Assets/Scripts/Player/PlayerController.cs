@@ -89,8 +89,6 @@ public class PlayerController : MonoBehaviour
         animator.SetFloat("Speed", Mathf.Abs(rb.linearVelocity.x));
         animator.SetBool("Grounded", grounded);
         animator.SetFloat("YVelocity", rb.linearVelocity.y);
-
-        Debug.Log($"Grounded : {grounded}, Y : {rb.linearVelocity.y}");
     }
 
     void CheckLanding()

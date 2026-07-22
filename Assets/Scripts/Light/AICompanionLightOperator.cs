@@ -61,13 +61,13 @@ public sealed class AICompanionLightOperator : MonoBehaviour
         if (IsWidthLoopActive)
         {
             widthLoopTime += Time.deltaTime * widthLoopSpeed;
-            mainLight.SetSpreadNormalized(Mathf.PingPong(widthLoopTime, 1f));
+            mainLight.SetSpreadNormalized(EvaluateSmoothLoop(widthLoopTime));
         }
 
         if (IsVerticalLoopActive)
         {
             verticalLoopTime += Time.deltaTime * verticalLoopSpeed;
-            mainLight.SetVerticalNormalized(Mathf.PingPong(verticalLoopTime, 1f));
+            mainLight.SetVerticalNormalized(EvaluateSmoothLoop(verticalLoopTime));
         }
     }
 
@@ -76,7 +76,7 @@ public sealed class AICompanionLightOperator : MonoBehaviour
         IsWidthLoopActive = !IsWidthLoopActive;
         if (IsWidthLoopActive)
         {
-            widthLoopTime = mainLight.SpreadNormalized;
+            widthLoopTime = PhaseFromValue(mainLight.SpreadNormalized);
             CommandStateChanged?.Invoke("WidthLoopStarted");
         }
         else
@@ -91,7 +91,7 @@ public sealed class AICompanionLightOperator : MonoBehaviour
         IsVerticalLoopActive = !IsVerticalLoopActive;
         if (IsVerticalLoopActive)
         {
-            verticalLoopTime = mainLight.VerticalNormalized;
+            verticalLoopTime = PhaseFromValue(mainLight.VerticalNormalized);
             CommandStateChanged?.Invoke("VerticalLoopStarted");
         }
         else
@@ -100,6 +100,15 @@ public sealed class AICompanionLightOperator : MonoBehaviour
         }
     }
 
+    private static float EvaluateSmoothLoop(float phase)
+    {
+        return 0.5f - 0.5f * Mathf.Cos(phase * Mathf.PI);
+    }
+
+    private static float PhaseFromValue(float normalized)
+    {
+        return Mathf.Acos(1f - 2f * Mathf.Clamp01(normalized)) / Mathf.PI;
+    }
     private static bool Pressed(KeyCode key, KeyCode keypadKey)
     {
         return Input.GetKeyDown(key) || Input.GetKeyDown(keypadKey);

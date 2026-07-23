@@ -6,12 +6,17 @@ public class PlayerController : MonoBehaviour
     public float jumpForce = 7f;
     public LayerMask groundLayer;
 
+    [Header("Footsteps")]
+    [SerializeField, Min(0.05f)] private float footstepInterval = 0.32f;
+    [SerializeField, Min(0f)] private float minimumFootstepSpeed = 0.1f;
+
     private Rigidbody2D rb;
     private CapsuleCollider2D col;
     private SpriteRenderer spriteRenderer;
     private Animator animator;
 
     private bool isJumping;
+    private float nextFootstepTime;
 
     void Start()
     {
@@ -27,6 +32,7 @@ public class PlayerController : MonoBehaviour
         Jump();
         UpdateAnimations();
         CheckLanding();
+        PlayFootsteps();
     }
 
     void Move()
@@ -82,6 +88,21 @@ public class PlayerController : MonoBehaviour
 
 
 
+    private void PlayFootsteps()
+    {
+        if (rb == null || Time.time < nextFootstepTime)
+            return;
+
+        bool walkingOnGround = IsGrounded() && Mathf.Abs(rb.linearVelocity.x) >= minimumFootstepSpeed;
+        if (!walkingOnGround)
+        {
+            nextFootstepTime = Time.time;
+            return;
+        }
+
+        RuntimeSfx.PlayFootstep();
+        nextFootstepTime = Time.time + footstepInterval;
+    }
     void UpdateAnimations()
     {
         bool grounded = IsGrounded();

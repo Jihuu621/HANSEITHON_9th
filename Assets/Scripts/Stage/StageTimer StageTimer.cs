@@ -1,87 +1,58 @@
-using UnityEngine;
-using TMPro;
 using System;
+using TMPro;
+using UnityEngine;
 
+/// <summary>Countdown display. Assign a TMP text already placed in the scene UI.</summary>
 public class StageTimer : MonoBehaviour
 {
-    [Header("제한 시간")]
-    public float limitTime = 60f;
-
-    private float currentTime;
-    private bool isRunning = false;
-
+    [Header("Time Limit")]
+    [Min(1f)] public float limitTime = 25f;
+    [Tooltip("Use the TextMeshPro text inside the timer frame you created.")]
     public TMP_Text timerText;
     public Action OnTimeOver;
+    public event Action<StageTimer> TimeChanged;
 
+    private float currentTime;
+    private bool isRunning;
 
+    public float RemainingNormalized => limitTime <= 0f ? 0f : currentTime / limitTime;
 
-    void Start()
+    public void SetLimitTime(float seconds)
     {
-        StartTimer();
+        limitTime = Mathf.Max(1f, seconds);
     }
 
-
-
-    void Update()
+    private void Update()
     {
         if (!isRunning)
             return;
 
-       
-        currentTime -= Time.deltaTime;
+        currentTime = Mathf.Max(0f, currentTime - Time.deltaTime);
+        RefreshText();
+        TimeChanged?.Invoke(this);
+        if (currentTime > 0f)
+            return;
 
-
-        if (timerText != null)
-        {
-            timerText.text =
-                Mathf.Ceil(currentTime).ToString();
-        }
-
-
-        if (currentTime <= 0)
-        {
-            currentTime = 0;
-            isRunning = false;
-
-            TimeOver();
-        }
+        isRunning = false;
+        OnTimeOver?.Invoke();
     }
-
-   
-
 
     public void StartTimer()
     {
         currentTime = limitTime;
         isRunning = true;
-
-        UpdateTimerUI();
+        RefreshText();
+        TimeChanged?.Invoke(this);
     }
-
-
 
     public void StopTimer()
     {
         isRunning = false;
     }
 
-
-
-    void TimeOver()
-    {
-        Debug.Log("시간 종료");
-
-        OnTimeOver?.Invoke();
-    }
-
-
-
-    void UpdateTimerUI()
+    private void RefreshText()
     {
         if (timerText != null)
-        {
-            timerText.text =
-                Mathf.Ceil(currentTime).ToString();
-        }
+            timerText.text = $"{Mathf.CeilToInt(currentTime)}\uCD08";
     }
 }

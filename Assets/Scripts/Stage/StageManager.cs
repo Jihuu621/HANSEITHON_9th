@@ -23,6 +23,8 @@ public sealed class StageManager : MonoBehaviour
     [Header("Vertical Stage Sequence")]
     [SerializeField] private List<StageDefinition> stages = new();
     [SerializeField] private bool startFirstStageOnStart = true;
+    [SerializeField, Min(1f)] private float firstStageTimeLimit = 25f;
+    [SerializeField, Min(0f)] private float timeLimitIncreasePerStage = 2f;
     [SerializeField, Min(0.1f)] private float elevatorDuration = 2.4f;
     [SerializeField] private float nextStageFloorOffsetY = -4.35f;
 
@@ -54,6 +56,11 @@ public sealed class StageManager : MonoBehaviour
         if (Instance != null && Instance != this)
             Debug.LogWarning("Multiple StageManagers were found. The newest instance will be used.", this);
         Instance = this;
+        CompanionMoodController.Ensure(this);
+
+        GameObject timerCanvas = GameObject.Find("Stage Timer Canvas");
+        if (timerCanvas != null)
+            Destroy(timerCanvas);
     }
 
     private void Start()
@@ -108,9 +115,10 @@ public sealed class StageManager : MonoBehaviour
         if (activeTimer != null)
         {
             activeTimer.OnTimeOver += HandleCurrentStageTimeOver;
+            activeTimer.TimeChanged += HandleTimerTimeChanged;
+            activeTimer.SetLimitTime(firstStageTimeLimit + stageIndex * timeLimitIncreasePerStage);
             activeTimer.StartTimer();
         }
-
         TryCompleteCurrentStage();
     }
 
@@ -133,11 +141,11 @@ public sealed class StageManager : MonoBehaviour
         StageTimer activeTimer = GetCurrentTimer();
         if (activeTimer != null)
             activeTimer.StopTimer();
-
         StageCeiling exitGate = GetCurrentExitGate();
         if (exitGate != null)
             exitGate.Open();
 
+        CompanionMoodController.Ensure(this).PlayClearMood();
         StageCompleted?.Invoke(CurrentStageIndex);
         RuntimeSfx.PlayStageClear();
         Debug.Log($"Stage {CurrentStageIndex + 1} cleared.", this);
@@ -207,6 +215,11 @@ public sealed class StageManager : MonoBehaviour
         BeginStage(nextStageIndex);
     }
 
+    private void HandleTimerTimeChanged(StageTimer changedTimer)
+    {
+        if (changedTimer != null && changedTimer == GetCurrentTimer())
+            CompanionMoodController.Ensure(this).SetTimePressure(changedTimer.RemainingNormalized);
+    }
     private void HandleCurrentStageTimeOver()
     {
         if (IsClear || IsTransitioning)
@@ -355,11 +368,15 @@ public sealed class StageManager : MonoBehaviour
             {
                 if (stages[i]?.timer != null)
                     stages[i].timer.OnTimeOver -= HandleCurrentStageTimeOver;
+                    stages[i].timer.TimeChanged -= HandleTimerTimeChanged;
+                    stages[i].timer.TimeChanged -= HandleTimerTimeChanged;
             }
             return;
         }
 
         if (timer != null)
             timer.OnTimeOver -= HandleCurrentStageTimeOver;
+            timer.TimeChanged -= HandleTimerTimeChanged;
+            timer.TimeChanged -= HandleTimerTimeChanged;
     }
 }

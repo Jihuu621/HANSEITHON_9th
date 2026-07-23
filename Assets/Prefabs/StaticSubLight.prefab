@@ -95,6 +95,8 @@ MonoBehaviour:
   lightSource: {fileID: 500002}
   activationRadius: 2.5
   startsActivated: 0
+  interactionKey: 102
+  interactionPrompt: F  LIGHT ON
 --- !u!50 &6626070606753228912
 Rigidbody2D:
   serializedVersion: 5

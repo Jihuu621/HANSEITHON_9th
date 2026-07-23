@@ -139,6 +139,7 @@ public sealed class StageManager : MonoBehaviour
             exitGate.Open();
 
         StageCompleted?.Invoke(CurrentStageIndex);
+        RuntimeSfx.PlayStageClear();
         Debug.Log($"Stage {CurrentStageIndex + 1} cleared.", this);
 
         if (HasNextStage)

@@ -1,22 +1,19 @@
-using System.Collections;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.UI;
 
-/// <summary>Changes the left companion portrait according to the active stage's time pressure.</summary>
+/// <summary>Chooses the Alpha portrait animation from the current stage timer state.</summary>
 [DisallowMultipleComponent]
 public sealed class CompanionMoodController : MonoBehaviour
 {
-    private const float UrgentThreshold = 0.5f;
-    private const float CriticalThreshold = 0.2f;
+    private const float StunThreshold = 1f / 3f;
+
+    private static readonly int IdleState = Animator.StringToHash("Alpha_Idle");
+    private static readonly int StunState = Animator.StringToHash("Alpha_Stun");
+    private static readonly int FunnyState = Animator.StringToHash("Alpha_Funny");
 
     private static CompanionMoodController instance;
-    private Image portrait;
-    private Sprite normalSprite;
-    private Sprite urgentSprite;
-    private Sprite happySprite;
-    private Coroutine clearRoutine;
-    private float timeRatio = 1f;
+    private Animator portraitAnimator;
+    private int currentState;
 
     public static CompanionMoodController Ensure(StageManager host)
     {
@@ -30,79 +27,42 @@ public sealed class CompanionMoodController : MonoBehaviour
     private void Awake()
     {
         instance = this;
-        ResolvePortraitAndSprites();
-        ApplyMood();
-    }
-
-    private void Update()
-    {
-        if (portrait == null || timeRatio > CriticalThreshold)
-            return;
-
-        float pulse = 0.9f + Mathf.PingPong(Time.unscaledTime * 5f, 0.1f);
-        portrait.color = new Color(1f, 0.72f * pulse, 0.72f * pulse, 1f);
+        ResolveAnimator();
+        PlayState(IdleState);
     }
 
     public void SetTimePressure(float normalizedRemainingTime)
     {
-        if (clearRoutine != null)
-            return;
-
-        timeRatio = Mathf.Clamp01(normalizedRemainingTime);
-        ApplyMood();
+        PlayState(normalizedRemainingTime <= StunThreshold ? StunState : IdleState);
     }
 
     public void PlayClearMood()
     {
-        if (clearRoutine != null)
-            StopCoroutine(clearRoutine);
-        clearRoutine = StartCoroutine(ShowClearMood());
+        PlayState(FunnyState);
     }
 
-    private IEnumerator ShowClearMood()
+    private void PlayState(int stateHash)
     {
-        ResolvePortraitAndSprites();
-        if (portrait != null && happySprite != null)
+        ResolveAnimator();
+        if (portraitAnimator == null || currentState == stateHash)
+            return;
+
+        if (!portraitAnimator.HasState(0, stateHash))
         {
-            portrait.sprite = happySprite;
-            portrait.color = Color.white;
+            Debug.LogWarning("Alpha Animator is missing a requested mood state.", portraitAnimator);
+            return;
         }
 
-        yield return new WaitForSecondsRealtime(1.5f);
-        clearRoutine = null;
-        timeRatio = 1f;
-        ApplyMood();
+        portraitAnimator.Play(stateHash, 0, 0f);
+        currentState = stateHash;
     }
 
-    private void ApplyMood()
+    private void ResolveAnimator()
     {
-        ResolvePortraitAndSprites();
-        if (portrait == null)
+        if (portraitAnimator != null)
             return;
 
-        portrait.sprite = timeRatio <= UrgentThreshold && urgentSprite != null ? urgentSprite : normalSprite;
-        portrait.color = timeRatio <= CriticalThreshold
-            ? new Color(1f, 0.72f, 0.72f, 1f)
-            : Color.white;
-    }
-
-    private void ResolvePortraitAndSprites()
-    {
-        if (portrait == null)
-        {
-            Image[] images = FindObjectsByType<Image>(FindObjectsInactive.Include);
-            portrait = images.FirstOrDefault(image => image != null && image.name == "Alpha");
-        }
-
-        if (normalSprite != null && urgentSprite != null && happySprite != null)
-            return;
-
-        Sprite[] alphaSprites = Resources.LoadAll<Sprite>("Sprites/Alpha").OrderBy(sprite => sprite.name).ToArray();
-        if (alphaSprites.Length < 3)
-            return;
-
-        normalSprite = alphaSprites.FirstOrDefault(sprite => sprite.name == "Alpha_0") ?? alphaSprites[0];
-        urgentSprite = alphaSprites.FirstOrDefault(sprite => sprite.name == "Alpha_1") ?? alphaSprites[1];
-        happySprite = alphaSprites.FirstOrDefault(sprite => sprite.name == "Alpha_2") ?? alphaSprites[2];
+        portraitAnimator = FindObjectsByType<Animator>(FindObjectsInactive.Include)
+            .FirstOrDefault(candidate => candidate != null && candidate.name == "Alpha");
     }
 }

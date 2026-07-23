@@ -2,12 +2,12 @@ using System;
 using TMPro;
 using UnityEngine;
 
-/// <summary>Countdown display. Assign a TMP text already placed in the scene UI.</summary>
+/// <summary>Countdown display using the StageTimerText object in GameUI.</summary>
 public class StageTimer : MonoBehaviour
 {
     [Header("Time Limit")]
     [Min(1f)] public float limitTime = 25f;
-    [Tooltip("Use the TextMeshPro text inside the timer frame you created.")]
+    [Tooltip("The TextMeshPro object inside the GameUI timer frame.")]
     public TMP_Text timerText;
     public Action OnTimeOver;
     public event Action<StageTimer> TimeChanged;
@@ -16,6 +16,11 @@ public class StageTimer : MonoBehaviour
     private bool isRunning;
 
     public float RemainingNormalized => limitTime <= 0f ? 0f : currentTime / limitTime;
+
+    private void Awake()
+    {
+        ResolveTimerText();
+    }
 
     public void SetLimitTime(float seconds)
     {
@@ -39,6 +44,7 @@ public class StageTimer : MonoBehaviour
 
     public void StartTimer()
     {
+        ResolveTimerText();
         currentTime = limitTime;
         isRunning = true;
         RefreshText();
@@ -52,7 +58,18 @@ public class StageTimer : MonoBehaviour
 
     private void RefreshText()
     {
+        ResolveTimerText();
         if (timerText != null)
             timerText.text = $"{Mathf.CeilToInt(currentTime)}\uCD08";
+    }
+
+    private void ResolveTimerText()
+    {
+        if (timerText != null)
+            return;
+
+        GameObject timerObject = GameObject.Find("StageTimerText");
+        if (timerObject != null)
+            timerText = timerObject.GetComponent<TMP_Text>();
     }
 }

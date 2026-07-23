@@ -8,45 +8,65 @@ public class SanabiDoTweenText : MonoBehaviour
     private TMP_Text textComponent;
 
     [Header("타자기 설정")]
-    [SerializeField] private float typingSpeed = 0.05f;
+    [SerializeField] private float typingSpeed = 0.04f; // 타이핑 속도
 
     [Header("타격감 연출 설정")]
-    [SerializeField] private float punchStrength = 0.15f;
-    [SerializeField] private float shakeStrength = 5f;
+    [SerializeField] private float punchStrength = 0.15f; // 커지는 강도
+    [SerializeField] private float shakeStrength = 5f;    // 흔들림 강도
 
-    // 현재 텍스트가 출력 중인지 확인할 수 있는 프로퍼티
     public bool IsPlaying { get; private set; } = false;
 
     void Awake()
     {
         textComponent = GetComponent<TMP_Text>();
+        ClearText();
+    }
+
+    private void OnDisable() => transform.DOKill();
+    private void OnDestroy() => transform.DOKill();
+
+    // 텍스트 초기화 함수
+    public void ClearText()
+    {
+        if (textComponent == null) textComponent = GetComponent<TMP_Text>();
+        textComponent.text = "";
         textComponent.maxVisibleCharacters = 0;
     }
 
-    public void PlayText(string content)
+    // 텍스트 덧붙이기 (줄바꿈 및 타자기 연출)
+    public void AppendText(string newContent, bool addNewLine = true)
     {
-        StopAllCoroutines();
-        StartCoroutine(TypeTextRoutine(content));
+        StartCoroutine(AppendTextRoutine(newContent, addNewLine));
     }
 
-    private IEnumerator TypeTextRoutine(string content)
+    private IEnumerator AppendTextRoutine(string newContent, bool addNewLine)
     {
-        IsPlaying = true; // 재생 시작
+        IsPlaying = true;
 
-        textComponent.text = content;
-        textComponent.maxVisibleCharacters = 0;
+        // 기존에 찍혀있던 글자 수 기억
+        int startVisibleIndex = textComponent.textInfo.characterCount;
 
-        yield return null;
+        // 줄바꿈 여부에 따라 텍스트 결합
+        if (addNewLine && !string.IsNullOrEmpty(textComponent.text))
+        {
+            textComponent.text += "\n" + newContent;
+        }
+        else
+        {
+            textComponent.text += newContent;
+        }
 
         textComponent.ForceMeshUpdate();
         int totalChars = textComponent.textInfo.characterCount;
 
-        for (int i = 0; i < totalChars; i++)
+        // 새로 추가된 글자 부분부터 타자기 연출 시작
+        for (int i = startVisibleIndex; i < totalChars; i++)
         {
             textComponent.maxVisibleCharacters = i + 1;
 
             char c = textComponent.textInfo.characterInfo[i].character;
 
+            // 공백 및 줄바꿈이 아닐 때만 펀치/흔들림 적용
             if (!char.IsWhiteSpace(c) && c != '\n' && c != '\r')
             {
                 transform.DOKill(true);
@@ -57,6 +77,6 @@ public class SanabiDoTweenText : MonoBehaviour
             yield return new WaitForSeconds(typingSpeed);
         }
 
-        IsPlaying = false; // 재생 완료
+        IsPlaying = false;
     }
 }

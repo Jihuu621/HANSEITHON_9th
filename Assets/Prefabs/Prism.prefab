@@ -53,8 +53,8 @@ MonoBehaviour:
   laserShader: {fileID: 4800000, guid: b25c36d47e5849f0a1b2c3d4e5f60718, type: 3}
   triangleWidth: 1.5
   triangleHeight: 1.3
-  unlitBodyColor: {r: 0.18, g: 0.22, b: 0.3, a: 0.65}
-  litBodyColor: {r: 0.65, g: 0.9, b: 1, a: 0.8}
+  unlitBodyColor: {r: 0.18, g: 0.22, b: 0.3, a: 0}
+  litBodyColor: {r: 1, g: 1, b: 1, a: 0}
   laserLength: 12
   laserWidth: 0.055
   redAngle: 30
@@ -230,7 +230,7 @@ SpriteRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: -7674809076007438946, guid: 5392211aa7bbde34f84c8dc5510a8e7a, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.5896226, g: 0.9122857, b: 1, a: 0.6039216}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
